@@ -87,7 +87,7 @@ class CrowdClient:
             detection_details = {}
 
             for detection in detections:
-                timestamp = detection['behaviors'][0]['timstamp']
+                timestamp = detection['behaviors'][0]['timestamp']
                 behaviors = detection['behaviors'][0]
 
                 detection_details[f"{timestamp} - {detection['max_severity_displayname']}: "
