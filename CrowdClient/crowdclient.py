@@ -1,6 +1,7 @@
 import requests
 from requests.auth import HTTPBasicAuth
 from .helpers import *
+from typing import Union
 
 
 class CrowdClient:
@@ -137,7 +138,7 @@ class CrowdClient:
         if response.status_code == 200:
             return response.json()['resources']
 
-    def get_incident_details(self, incident_ids: typing.List, detailed: bool = True) -> typing.List:
+    def get_incident_details(self, incident_ids: typing.List, detailed: bool = True) -> Union[Union[list, dict]]:
         """
 
         :param incident_ids:
@@ -162,7 +163,7 @@ class CrowdClient:
                 else:
                     incident_details[incident['incident_id']] = incident
 
-            return [incident_details]
+            return incident_details
 
         else:
             return incidents
