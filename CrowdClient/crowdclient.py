@@ -1,7 +1,7 @@
 import requests
 from requests.auth import HTTPBasicAuth
 from .helpers import *
-from typing import Union
+from typing import Union, List
 
 
 class CrowdClient:
@@ -35,11 +35,11 @@ class CrowdClient:
 
             self.session.headers = headers
 
-        return response.status_code == 200
+        return response.status_code == 201
 
     def revoke(self) -> bool:
         """
-        Revoke an issued Bearer token
+        Revoke an issued Bearer token.
         :return:
         """
         payload = {'token': self.session.headers['Authorization']}
@@ -50,7 +50,7 @@ class CrowdClient:
         return response.status_code == 200
 
     def get_detections(self, limit: int = 9999, offset: int = 0, sort: str = 'last_behavior|desc',
-                       status: str = 'new') -> typing.List:
+                       status: str = 'new') -> List:
         """
 
         :param limit:
@@ -67,17 +67,17 @@ class CrowdClient:
         if response.status_code == 200:
             return response.json()['resources']
 
-    def get_detection_details(self, detection_ids: typing.List, detailed: bool = True) -> typing.List:
+    def get_detection_details(self, detection_ids: List, detailed: bool = True) -> List:
         """
 
         :param detection_ids:
         :param detailed:
         :return:
         """
-        detect_deets = '/detects/entities/summaries/GET/v1'
+
         payload = {'ids': detection_ids}
 
-        response = self.session.post(self.base_url + detect_deets, json=payload)
+        response = self.session.post(self.base_url + '/detects/entities/summaries/GET/v1', json=payload)
 
         if response.status_code == 200:
             detections = response.json()['resources']
@@ -117,12 +117,12 @@ class CrowdClient:
         if comment:
             payload['comment'] = comment
 
-        response = self.session.patch(self.base_url + '/detects/entities/v2', json=payload)
+        response = self.session.patch(self.base_url + '/detects/entities/detects/v2', json=payload)
 
         return response.status_code == 200
 
     def get_incidents(self, sort: str = 'modified_timestamp.desc', status: str = '20',
-                      fine_score: str = '10') -> typing.List:
+                      fine_score: str = '10') -> List:
         """
 
         :param sort:
@@ -138,7 +138,7 @@ class CrowdClient:
         if response.status_code == 200:
             return response.json()['resources']
 
-    def get_incident_details(self, incident_ids: typing.List, detailed: bool = True) -> Union[Union[list, dict]]:
+    def get_incident_details(self, incident_ids: List, detailed: bool = True) -> Union[Union[list, dict]]:
         """
 
         :param incident_ids:
@@ -168,10 +168,10 @@ class CrowdClient:
         else:
             return incidents
 
-    def update_incident(self, incident_id: str, status: str = '', tags: str = '') -> bool:
+    def update_incident(self, incident_ids: List, status: str = '', tags: str = '') -> bool:
         """
 
-        :param incident_id:
+        :param incident_ids:
         :param status:
         :param tags:
         :return:
@@ -186,13 +186,23 @@ class CrowdClient:
                                       'value': tags})
 
         payload = {'action_parameters': action_parameters,
-                   'ids': [incident_id]}
+                   'ids': incident_ids}
 
         response = self.session.post(self.base_url + '/incidents/entities/incident-actions/v1', json=payload)
 
         return response.status_code == 200
 
-    def indicator_upload(self, indicator_list: typing.List, description: str, category: str) -> typing.List:
+    def get_behavior_details(self, behavior_ids: List) -> dict:
+        payload = {'ids': behavior_ids}
+
+        response = self.session.post(self.base_url + '/incidents/entities/behaviors/GET/v1', json=payload)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {'Error Code': response.status_code, 'Error Details': response.text}
+
+    def indicator_upload(self, indicator_list: List, description: str, category: str) -> Union[str, List]:
         """
 
         :param indicator_list:
@@ -207,11 +217,11 @@ class CrowdClient:
 
             if response.status_code == 200:
                 if not response.json()['errors']:
-                    return ["[*] Indicators successfully uploaded to CrowdStrike!\n"]
+                    return "[*] Indicators successfully uploaded to CrowdStrike!\n"
                 else:
                     return response.json()['errors']
 
-    def indicator_info(self, indicator: str, indicator_type: str) -> typing.List:
+    def indicator_info(self, indicator: str, indicator_type: str) -> List:
         """
 
         :param indicator:
@@ -226,7 +236,7 @@ class CrowdClient:
         if response.status_code == 200:
             return response.json()['resources']
 
-    def indicator_host_search(self, indicator: str, indicator_type: str) -> typing.List:
+    def indicator_host_search(self, indicator: str, indicator_type: str) -> List:
         """
 
         :param indicator:
@@ -239,7 +249,7 @@ class CrowdClient:
         response = self.session.get(self.base_url + '/indicators/queries/devices/v1', params=params)
 
         if response.status_code == 200:
-            return response.json()['resources']
+            return response.json()
 
     def indicator_host_count(self, indicator: str, indicator_type: str) -> int:
         """
@@ -286,7 +296,7 @@ class CrowdClient:
         if response.status_code == 200:
             return response.json()['resources']
 
-    def host_search(self, criteria: str, criteria_type: str) -> typing.List:
+    def host_search(self, criteria: str, criteria_type: str) -> List:
         """
 
         :param criteria:
@@ -300,7 +310,7 @@ class CrowdClient:
         if response.status_code == 200:
             return response.json()['resources']
 
-    def host_details(self, host_ids: typing.List) -> typing.List:
+    def host_details(self, host_ids: List) -> List:
         """
 
         :param host_ids:
@@ -312,3 +322,12 @@ class CrowdClient:
 
         if response.status_code == 200:
             return response.json()['resources']
+
+    def host_action(self, host_ids: List, action: str) -> bool:
+        payload = {'ids': host_ids}
+        params = {'action_name': action}
+
+        response = self.session.post(self.base_url + '/devices/entities/devices-actions/v2',
+                                     json=payload, params=params)
+
+        return response.status_code == 202
