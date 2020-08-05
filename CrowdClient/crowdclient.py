@@ -50,28 +50,35 @@ class CrowdClient:
         return response.status_code == 200
 
     def get_detections(self, limit: int = 9999, offset: int = 0, sort: str = 'last_behavior|desc',
-                       status: str = 'new') -> List:
+                       status: str = 'new', severity: str = 'All') -> List:
         """
-
-        :param limit:
-        :param offset:
-        :param sort:
-        :param status:
+        Get a list of detection ID's based on the parameters supplied.
+        :param limit: Defaults to 9999 detections.
+        :param offset: First detection to return (0 is the latest detection).
+        :param sort: Defaults to last behavior associated with the detection in descending order.
+        :param status: Defaults to new detections - Can be new, in_progress, true_positive, false_positive, or ignored.
+        :param severity: Specify Critical, High, Medium, Low, or Info - Defaults to all of the above.
         :return:
         """
-        params = {'limit': limit, 'offset': offset, 'sort': sort,
-                  'filter': f"status:'{status}'+max_severity_displayname:['Critical', 'High', 'Medium', 'Low']"}
+
+        params = {'limit': limit, 'offset': offset, 'sort': sort}
+
+        if severity != 'All':
+            params['filter'] = f"status:'{status}'+max_severity_displayname:['{severity}']"
+        else:
+            params['filter'] = f"status:'{status}'+" \
+                               f"max_severity_displayname:['Critical', 'High', 'Medium', 'Low', 'Info']"
 
         response = self.session.get(self.base_url + '/detects/queries/detects/v1', params=params)
 
         if response.status_code == 200:
             return response.json()['resources']
 
-    def get_detection_details(self, detection_ids: List, detailed: bool = True) -> List:
+    def get_detection_details(self, detection_ids: List, detailed: bool = False) -> List:
         """
-
-        :param detection_ids:
-        :param detailed:
+        Retrieves details for a list of supplied detection ID's (IE, from the get_detections method).
+        :param detection_ids: Supply a list of detection ID's - Or even just one, as long as it's in list format.
+        :param detailed: Formatted a bit more nicely - Off by default.
         :return:
         """
 
@@ -101,11 +108,11 @@ class CrowdClient:
 
     def update_detection(self, detection_id: str, status: str = '', assignment: str = '', comment: str = '') -> bool:
         """
-
-        :param detection_id:
-        :param status:
-        :param assignment:
-        :param comment:
+        Modify the state, assignee, and/or visibility of a detection.
+        :param detection_id: Supply a detection ID in the form of a string.
+        :param status: Can be new, in_progress, true_positive, false_positive, or ignored.
+        :param assignment: Must be a user ID (UUID) for a user in your CrowdStrike account.
+        :param comment: Can add a comment to a detection in the form of a string.
         :return:
         """
         payload = {'ids': [detection_id]}
@@ -210,6 +217,7 @@ class CrowdClient:
         :param category:
         :return:
         """
+
         payload = payload_assemble(indicator_list, description, category)
 
         for item in chunker(payload):
@@ -221,15 +229,20 @@ class CrowdClient:
                 else:
                     return response.json()['errors']
 
-    def indicator_info(self, indicator: str, indicator_type: str) -> List:
+    def indicator_info(self, indicator: str, indicator_type: str, policy: str = 'detect') -> List:
         """
-
+        View information related to a specific indicator.
         :param indicator:
-        :param indicator_type:
+        :param indicator_type: May be ipv4, ipv6, domain, md5, or sha256.
+        :param policy: May be 'detect' or 'none'.
         :return:
         """
+
         params = {'type': indicator_type,
                   'value': indicator}
+
+        if policy:
+            params['policy'] = policy
 
         response = self.session.get(self.base_url + '/indicators/entities/iocs/v1', params=params)
 
@@ -238,11 +251,12 @@ class CrowdClient:
 
     def indicator_host_search(self, indicator: str, indicator_type: str) -> List:
         """
-
-        :param indicator:
-        :param indicator_type:
+        Search for hosts that have displayed some activity related to a specified indicator.
+        :param indicator: String representation of the indicator.
+        :param indicator_type: May be ipv4, ipv6, domain, md5, or sha256.
         :return:
         """
+
         params = {'type': indicator_type,
                   'value': indicator}
 
@@ -253,9 +267,9 @@ class CrowdClient:
 
     def indicator_host_count(self, indicator: str, indicator_type: str) -> int:
         """
-
-        :param indicator:
-        :param indicator_type:
+        View the # of hosts that have exhibited some activity with regard to a specific IOC.
+        :param indicator: String representation fo the indicator.
+        :param indicator_type: May be ipv4, ipv6, domain, md5, or sha256.
         :return:
         """
         params = {'type': indicator_type,
@@ -266,11 +280,11 @@ class CrowdClient:
         if response.status_code == 200:
             return response.json()['resources'][0]['device_count']
 
-    def indicator_remove(self, indicator: str, indicator_type):
+    def indicator_remove(self, indicator: str, indicator_type) -> bool:
         """
-
-        :param indicator:
-        :param indicator_type:
+        Delete an IOC from your customer account by specifying the indicator and its type.
+        :param indicator: String representation fo the indicator.
+        :param indicator_type: May be ipv4, ipv6, domain, md5, or sha256.
         :return:
         """
         params = {'type': indicator_type,
@@ -278,17 +292,15 @@ class CrowdClient:
 
         response = self.session.delete(self.base_url + '/indicators/entities/iocs/v1', params=params)
 
-        if response.status_code == 200:
-            return f"Indicator {indicator} Removed!"
-        else:
-            return f"Failed removal of indicator {indicator}."
+        return response.status_code == 200
 
     def indicator_list(self, indicator_type: str):
         """
-
-        :param indicator_type:
+        View custom IOC's in your customer account by specifying the type you'd like listed.
+        :param indicator_type: May be ipv4, ipv6, domain, md5, or sha256.
         :return:
         """
+
         params = {'types': indicator_type}
 
         response = self.session.get(self.base_url + '/indicators/queries/iocs/v1', params=params)
@@ -296,14 +308,19 @@ class CrowdClient:
         if response.status_code == 200:
             return response.json()['resources']
 
-    def host_search(self, criteria: str, criteria_type: str) -> List:
+    def host_search(self, criteria: str, criteria_type: str, limit: int = 5000) -> List:
         """
-
-        :param criteria:
-        :param criteria_type:
+        Search for hosts in your environment - Returns a list of agent ID's.
+        :param criteria_type: IE, local_ip, hostname, etc.
+        :param criteria: Largely dependent on 'criteria_type' (IE, local_ip:'192.168.0.3')
+        :param limit: Defaults to 5000 to capture as many records as possible.
         :return:
         """
+
         params = {'filter': f"{criteria_type}:'{criteria}'"}
+
+        if limit:
+            params['limit'] = limit
 
         response = self.session.get(self.base_url + '/devices/queries/devices/v1', params=params)
 
@@ -312,8 +329,8 @@ class CrowdClient:
 
     def host_details(self, host_ids: List) -> List:
         """
-
-        :param host_ids:
+        Retrieve host details using a list of agent ID's (can be retrieved with host_search method).
+        :param host_ids: IE, ['123456789aeiou', '987654321uoiea'] - Can be retrieved with host_search.
         :return:
         """
         params = {'ids': host_ids}
@@ -324,6 +341,12 @@ class CrowdClient:
             return response.json()['resources']
 
     def host_action(self, host_ids: List, action: str) -> bool:
+        """
+        Contain, lift containment, delete, or restore a host using supplied host ID's.
+        :param host_ids: IE, ['123456789aeiou', '987654321uoiea'] - Can be retrieved with host_search.
+        :param action: Action to take - May be contain, lift_containment, hide_host, or unhide_host.
+        :return:
+        """
         payload = {'ids': host_ids}
         params = {'action_name': action}
 
