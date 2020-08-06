@@ -3,3 +3,7 @@
 /Scripts/
 /Include/
 /pyvenv.cfg
+/build/
+/CrowdClient.egg-info/
+/dist/
+/Include/
