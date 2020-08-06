@@ -1,5 +1,6 @@
 import requests
 from requests.auth import HTTPBasicAuth
+from requests_toolbelt import MultipartEncoder
 from .helpers import *
 from typing import Union, List
 
@@ -128,28 +129,35 @@ class CrowdClient:
 
         return response.status_code == 200
 
-    def get_incidents(self, sort: str = 'modified_timestamp.desc', status: str = '20',
-                      fine_score: str = '10') -> List:
+    def get_incidents(self, sort: str = 'modified_timestamp.desc', status: str = '20', fine_score: str = '10') -> List:
         """
-
-        :param sort:
-        :param status:
-        :param fine_score:
+        Retrieve a list of incidents in your environment based on supplied criteria.
+        :param sort: Defaults to descending order based on last modified.
+        :param status: Can be 'New', 'In Progress', 'Closed', or 'Reopened'.
+        :param fine_score: Severity (>=) can be anywhere from 0-100 (100 would have a severity of 10.0).
         :return:
         """
+
+        status_dict = {
+            'New': '20',
+            'In Progress': '30',
+            'Closed': '40',
+            'Reopened': '25'
+        }
+
         params = {'sort': sort,
-                  'filter': f'status:{status}+fine_score:>={fine_score}'}
+                  'filter': f'status:{status_dict[status]}+fine_score:>={fine_score}'}
 
         response = self.session.get(self.base_url + '/incidents/queries/incidents/v1', params=params)
 
         if response.status_code == 200:
             return response.json()['resources']
 
-    def get_incident_details(self, incident_ids: List, detailed: bool = True) -> Union[Union[list, dict]]:
+    def get_incident_details(self, incident_ids: List, detailed: bool = False) -> Union[Union[list, dict]]:
         """
-
-        :param incident_ids:
-        :param detailed:
+        Get details for one or more incidents by supplying their ID's.
+        :param incident_ids: Incident ID's in the form of a list - Can get these with get_incidents().
+        :param detailed: Optional... Retrieve these details in the form of a detailed dict.
         :return:
         """
         payload = {'ids': incident_ids}
@@ -177,17 +185,23 @@ class CrowdClient:
 
     def update_incident(self, incident_ids: List, status: str = '', tags: str = '') -> bool:
         """
-
-        :param incident_ids:
-        :param status:
-        :param tags:
+        Update one or more incidents by supplying their ID's.
+        :param incident_ids: Specify which incidents you'd like to modify in the form of a list.
+        :param status: Can be 'New', 'In Progress', 'Closed', or 'Reopened'.
+        :param tags: Specify which tags you'd like to apply to the specified incident(s).
         :return:
         """
+
+        status_dict = {'New': '20',
+                       'In Progress': '30',
+                       'Closed': '40',
+                       'Reopened': '25'}
+
         action_parameters = []
 
         if status:
             action_parameters.append({'name': 'update_status',
-                                      'value': status})
+                                      'value': status_dict[status]})
         if tags:
             action_parameters.append({'name': 'add_tag',
                                       'value': tags})
@@ -199,7 +213,34 @@ class CrowdClient:
 
         return response.status_code == 200
 
+    def get_behaviors(self, criteria: str, criteria_type: str, limit: int = 500) -> dict:
+        """
+        Get a list of behavior ID's based on supplied criteria.
+        :param criteria_type: IE, local_ip, hostname, etc.
+        :param criteria: Largely dependent on 'criteria_type' (IE, local_ip:'192.168.0.3')
+        :param limit: Defaults to 500 to capture as many records as possible.
+        :return:
+        """
+
+        params = {
+            'filter': f"{criteria_type}:'{criteria}'",
+            'limit': limit
+        }
+
+        response = self.session.get(self.base_url + '/incidents/queries/behaviors/v1', jparams=params)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {'Error Code': response.status_code, 'Error Details': response.text}
+
     def get_behavior_details(self, behavior_ids: List) -> dict:
+        """
+        Supply a list of behavior ID's to retrieve details on each.
+        :param behavior_ids: List of behavior ID's - Can be retrieved with the get_behaviors method.
+        :return:
+        """
+
         payload = {'ids': behavior_ids}
 
         response = self.session.post(self.base_url + '/incidents/entities/behaviors/GET/v1', json=payload)
@@ -209,16 +250,16 @@ class CrowdClient:
         else:
             return {'Error Code': response.status_code, 'Error Details': response.text}
 
-    def indicator_upload(self, indicator_list: List, description: str, category: str) -> Union[str, List]:
+    def indicator_upload(self, indicator_list: List, indicator_type: str, description: str = '') -> Union[str, List]:
         """
-
-        :param indicator_list:
-        :param description:
-        :param category:
+        Create a new indicator/series of indicators in your account.
+        :param indicator_list: Should all be of the same category (IE, ipv4, domain, md5, etc)
+        :param indicator_type: Valid types include ipv4, ipv6, domain, md5, or sha256
+        :param description: Optionally supply your own description in the form of a string.
         :return:
         """
 
-        payload = payload_assemble(indicator_list, description, category)
+        payload = payload_assemble(indicator_list, description, indicator_type)
 
         for item in chunker(payload):
             response = self.session.post(self.base_url + '/indicators/entities/iocs/v1', json=item)
@@ -232,7 +273,7 @@ class CrowdClient:
     def indicator_info(self, indicator: str, indicator_type: str, policy: str = 'detect') -> List:
         """
         View information related to a specific indicator.
-        :param indicator:
+        :param indicator: Specify an indicator for which you'd like details.
         :param indicator_type: May be ipv4, ipv6, domain, md5, or sha256.
         :param policy: May be 'detect' or 'none'.
         :return:
@@ -354,3 +395,58 @@ class CrowdClient:
                                      json=payload, params=params)
 
         return response.status_code == 202
+
+    def rtr_get_scripts(self):
+        response = self.session.get(self.base_url + '/real-time-response/queries/scripts/v1')
+
+        if response.status_code == 200:
+            return response.json()['resources']
+
+    def rtr_script_details(self, script_ids: List):
+        params = {'ids': script_ids}
+
+        response = self.session.get(self.base_url + '/real-time-response/entities/scripts/v1', params=params)
+
+        if response.status_code == 200:
+            return response.json()['resources']
+        else:
+            return response
+
+    def rtr_upload_script(self, script_path: str, script_name: str, description: str,
+                          permission_type: str, platform: str):
+
+        payload = MultipartEncoder(
+            fields={'file': (script_name, open(script_path, 'rb')),
+                    'description': description,
+                    'permission_type': permission_type,
+                    'platform': platform}
+        )
+
+        self.session.headers['Content-Type'] = payload.content_type
+
+        response = self.session.post(self.base_url + '/real-time-response/entities/scripts/v1', data=payload)
+
+        return response.status_code == 200
+
+    def rtr_delete_script(self, script_id):
+        params = {'ids': script_id}
+
+        response = self.session.delete(self.base_url + '/real-time-response/entities/scripts/v1', params=params)
+
+        return response.status_code == 200
+
+    def rtr_batch_init(self, host_ids: List, timeout: str = '30', timeout_duration: str = '30s'):
+        params = {'timeout': timeout,
+                  'timeout_duration': timeout_duration}
+
+        payload = {'host_ids': host_ids}
+
+        response = self.session.post(self.base_url + '/real-time-response/combined/batch-init-session/v1',
+                                     params=params, json=payload)
+
+        if response.status_code == 201:
+            return response.json()['batch_id']
+        else:
+            return f'Error:\n{response.text}'
+
+
