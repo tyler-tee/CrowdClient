@@ -396,24 +396,74 @@ class CrowdClient:
 
         return response.status_code == 202
 
-    def rtr_get_scripts(self):
-        response = self.session.get(self.base_url + '/real-time-response/queries/scripts/v1')
+
+class RTRClient:
+
+    def __init__(self, client_id: str,
+                 client_secret: str,
+                 base_url: str = 'https://api.crowdstrike.com',
+                 verify_cert: bool = True):
+
+        self.base_url = base_url + '/real-time-response'
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.session = requests.session()
+        self.session.verify = verify_cert
+
+    def authenticate(self) -> bool:
+        """
+        Authenticate to CrowdStrike API using id and secret supplied on instantiation
+        :return:
+        """
+        payload = {'client_id': self.client_id,
+                   'client_secret': self.client_secret}
+
+        response = self.session.post(self.base_url + '/oauth2/token',
+                                     data=payload)
+
+        if response.status_code == 201:
+            headers = {'Authorization': f'Bearer {response.json()["access_token"]}',
+                       'token_type': 'bearer',
+                       'Content-Type': 'application/json'}
+
+            self.session.headers = headers
+
+        return response.status_code == 201
+
+    def revoke(self) -> bool:
+        """
+        Revoke an issued Bearer token.
+        :return:
+        """
+        payload = {'token': self.session.headers['Authorization']}
+
+        response = self.session.post(self.base_url + '/oauth2/revoke', data=payload,
+                                     auth=HTTPBasicAuth(self.client_id, self.client_secret))
+
+        return response.status_code == 200
+
+    def get_scripts(self):
+        """
+
+        :return:
+        """
+        response = self.session.get(self.base_url + '/queries/scripts/v1')
 
         if response.status_code == 200:
             return response.json()['resources']
 
-    def rtr_script_details(self, script_ids: List):
+    def script_details(self, script_ids: List):
         params = {'ids': script_ids}
 
-        response = self.session.get(self.base_url + '/real-time-response/entities/scripts/v1', params=params)
+        response = self.session.get(self.base_url + '/entities/scripts/v1', params=params)
 
         if response.status_code == 200:
             return response.json()['resources']
         else:
             return response
 
-    def rtr_upload_script(self, script_path: str, script_name: str, description: str,
-                          permission_type: str, platform: str):
+    def upload_script(self, script_path: str, script_name: str, description: str,
+                      permission_type: str, platform: str):
 
         payload = MultipartEncoder(
             fields={'file': (script_name, open(script_path, 'rb')),
@@ -424,24 +474,32 @@ class CrowdClient:
 
         self.session.headers['Content-Type'] = payload.content_type
 
-        response = self.session.post(self.base_url + '/real-time-response/entities/scripts/v1', data=payload)
+        response = self.session.post(self.base_url + '/entities/scripts/v1', data=payload)
 
         return response.status_code == 200
 
-    def rtr_delete_script(self, script_id):
+    def delete_script(self, script_id):
         params = {'ids': script_id}
 
-        response = self.session.delete(self.base_url + '/real-time-response/entities/scripts/v1', params=params)
+        response = self.session.delete(self.base_url + '/entities/scripts/v1', params=params)
 
         return response.status_code == 200
 
-    def rtr_batch_init(self, host_ids: List, timeout: str = '30', timeout_duration: str = '30s'):
+    def batch_init(self, host_ids: List, timeout: str = '30', timeout_duration: str = '30s') -> str:
+        """
+        Initialize an RTR session across multiple hosts.
+        :param host_ids: List of agent ID's belonging to one or more hosts.
+        :param timeout: Timeout in seconds - Default is 30 seconds, maximum is 600 (10 minutes).
+        :param timeout_duration: How long to wait for request to complete - Valid units: ns, us, ms, s, m, h - Max 10m.
+        :return:
+        """
+
         params = {'timeout': timeout,
                   'timeout_duration': timeout_duration}
 
         payload = {'host_ids': host_ids}
 
-        response = self.session.post(self.base_url + '/real-time-response/combined/batch-init-session/v1',
+        response = self.session.post(self.base_url + '/combined/batch-init-session/v1',
                                      params=params, json=payload)
 
         if response.status_code == 201:
@@ -449,4 +507,170 @@ class CrowdClient:
         else:
             return f'Error:\n{response.text}'
 
+    def batch_cmd(self, batch_id: str, command: str, command_string: str, timeout: int = 30,
+                  timeout_duration: str = '10m', optional_hosts: List = None) -> bool:
+        """
+        Executes an RTR read-only command across all hosts mapped to a batch ID.
+        :param batch_id: Batch ID retrieved from the batch_init() method.
+        :param command: Valid commands: cat, cd, clear, env, eventlog, filehash, getsid, help, history, ipconfig, ls,
+                        mount, netstat, ps, reg query.
+        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :param timeout: How long to wait for the request in seconds - Default is 30, max is 10 minutes (600).
+        :param timeout_duration: How long to wait for the request in duration syntax. Valid units: ns, us, ms, s, m, h.
+        :param optional_hosts: List of a subset of hosts to run a command on.
+        :return:
+        """
 
+        payload = {
+            'base_command': command,
+            'batch_id': batch_id,
+            'command_string': command_string
+        }
+
+        if optional_hosts:
+            payload['optional_hosts'] = optional_hosts
+
+        params = {
+            'timeout': timeout,
+            'timeout_duration': timeout_duration
+        }
+
+        response = self.session.post(self.base_url + '/combined/batch-command/v1', json=payload, params=params)
+
+        return response.status_code == 201
+
+    def batch_active_cmd(self, batch_id: str, command: str, command_string: str, timeout: int = 30,
+                         timeout_duration: str = '10m', optional_hosts: List = None) -> bool:
+        """
+        Executes an RTR read-only command across all hosts mapped to a batch ID.
+        :param batch_id: Batch ID retrieved from the batch_init() method.
+        :param command: Valid commands: cat, cd, clear, cp, encrypt, env, eventlog, filehash, get, getsid, help,
+                        history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, reg query, reg set,
+                        reg delete, reg load, reg unload, restart, rm, runscript, shutdown, unmap, xmemdump, zip.
+        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :param timeout: How long to wait for the request in seconds - Default is 30, max is 10 minutes (600).
+        :param timeout_duration: How long to wait for the request in duration syntax. Valid units: ns, us, ms, s, m, h.
+        :param optional_hosts: List of a subset of hosts to run a command on.
+        :return:
+        """
+
+        payload = {
+            'base_command': command,
+            'batch_id': batch_id,
+            'command_string': command_string
+        }
+
+        if optional_hosts:
+            payload['optional_hosts'] = optional_hosts
+
+        params = {
+            'timeout': timeout,
+            'timeout_duration': timeout_duration
+        }
+
+        response = self.session.post(self.base_url + '/combined/batch-active-responder-command/v1',
+                                     json=payload, params=params)
+
+        return response.status_code == 201
+
+    def session_init(self, host_id: str, origin: str) -> str:
+        """
+        Initialize an RTR session on a single host.
+        :param host_id: Agent ID on which the session will be initiated.
+        :param origin:
+        :return:
+        """
+
+        payload = {
+            'device_id': host_id,
+            'origin': origin,
+        }
+
+        response = self.session.post(self.base_url + '/entities/sessions/v1', json=payload)
+
+        if response.status_code == 201:
+            return response.json()['resources'][0]['session_id']
+        else:
+            return response.text
+
+    def delete_session(self, session_id: str) -> bool:
+        """
+        Delete an existing single-host session.
+        :param session_id: Session ID supplied as a string.
+        :return:
+        """
+        params = {'session_Id': session_id}
+
+        response = self.session.delete(self.base_url + '/entities/sessions/v1', params=params)
+
+        return response.status_code == 204
+
+    def session_list(self) -> dict:
+        """
+        View session ID's currently initiated in your customer account.
+        :return:
+        """
+
+        response = self.session.get(self.base_url + '/queries/sessions/v1')
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {'Error Code': response.status_code, 'Error': response.text}
+
+    def session_meta(self, session_ids: List) -> dict:
+        """
+        Retrieve metadata related to established sessions.
+        :param session_ids: Specify sessions on which you'd like info in the form of a list of strings.
+        :return:
+        """
+
+        payload = {'ids': session_ids}
+
+        response = self.session.post(self.base_url + '/entities/sessions/GET/v1', json=payload)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {'Error Code': response.status_code, 'Error Details': response.text}
+
+    def session_cmd(self, session_id: str, command: str, command_string: str) -> bool:
+        """
+        Executes an RTR read-only command across all hosts mapped to a batch ID.
+        :param session_id: Session ID retrieved from the batch_init() method.
+        :param command: Valid commands: cat, cd, clear, env, eventlog, filehash, getsid, help, history, ipconfig, ls,
+                        mount, netstat, ps, reg query.
+        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :return:
+        """
+
+        payload = {
+            'base_command': command,
+            'command_string': command_string,
+            'id': session_id
+        }
+
+        response = self.session.post(self.base_url + '/entities/command/v1', json=payload)
+
+        return response.status_code == 201
+
+    def session_active_cmd(self, session_id: str, command: str, command_string: str) -> bool:
+        """
+        Executes an RTR read-only command across all hosts mapped to a batch ID.
+        :param session_id: Batch ID retrieved from the batch_init() method.
+        :param command: Valid commands: cat, cd, clear, cp, encrypt, env, eventlog, filehash, get, getsid, help,
+                        history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, reg query, reg set,
+                        reg delete, reg load, reg unload, restart, rm, runscript, shutdown, unmap, xmemdump, zip.
+        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :return:
+        """
+
+        payload = {
+            'base_command': command,
+            'batch_id': session_id,
+            'command_string': command_string
+        }
+
+        response = self.session.post(self.base_url + '/entities/active-responder-command/v1', json=payload)
+
+        return response.status_code == 201
