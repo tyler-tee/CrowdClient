@@ -415,14 +415,13 @@ class RTRClient:
 
     def authenticate(self) -> RTRClient:
         """
-        Authenticate to CrowdStrike API using id and secret supplied on instantiation
+        Authenticate to CrowdStrike API using id and secret supplied on instantiation.
         :return:
         """
         payload = {'client_id': self.client_id,
                    'client_secret': self.client_secret}
 
-        response = self.session.post(self.base_url + '/oauth2/token',
-                                     data=payload)
+        response = self.session.post(self.base_url + '/oauth2/token', data=payload)
 
         if response.status_code == 201:
             headers = {'Authorization': f'Bearer {response.json()["access_token"]}',
@@ -600,8 +599,7 @@ class RTRClient:
             'timeout_duration': timeout_duration
         }
 
-        response = self.session.post(self.base_url + '/combined/batch-admin-command/v1',
-                                     json=payload, params=params)
+        response = self.session.post(self.base_url + '/combined/batch-admin-command/v1', json=payload, params=params)
 
         return response.status_code == 201
 
@@ -802,7 +800,7 @@ class RTRClient:
 
         return response.status_code == 204
 
-    def get_scripts(self):
+    def get_scripts(self) -> List:
         """
         Get  alist of custom-script ID's available for the user for the 'runscript' command.
         :return:
@@ -813,7 +811,7 @@ class RTRClient:
         if response.status_code == 200:
             return response.json()['resources']
 
-    def script_details(self, script_ids: List):
+    def script_details(self, script_ids: List) -> dict:
         """
         Get the details for custom-scripts based on the ID's provided.
         :param script_ids: Supply a list of strings corresponding to existing script ID's.
@@ -827,10 +825,10 @@ class RTRClient:
         if response.status_code == 200:
             return response.json()['resources']
         else:
-            return response
+            return {'Error Code': response.status_code, 'Error Details': response.text, 'Full Response': response}
 
     def script_upload(self, script_path: str, script_name: str, description: str,
-                      permission_type: str, platform: List = None):
+                      permission_type: str, platform: List = None) -> bool:
         """
         Upload a new custom-script to use for the RTR 'runscript' command'.
         :param script_path: Custom-script file to upload (Should be a .ps1).
@@ -861,7 +859,7 @@ class RTRClient:
         return response.status_code == 200
 
     def script_replace(self, script_id: str, script_path: str, script_name: str, description: str,
-                       permission_type: str, platform: List = None):
+                       permission_type: str, platform: List = None) -> bool:
         """
         Upload a new custom-script to use for the RTR 'runscript' command'.
         :param script_id: Script ID to update.
@@ -890,7 +888,7 @@ class RTRClient:
 
         return response.status_code == 200
 
-    def script_delete(self, script_id):
+    def script_delete(self, script_id) -> bool:
         """
         Delete a custom-script based on the ID given.
         :param script_id: Supply script ID as a string.
