@@ -802,7 +802,7 @@ class RTRClient:
 
     def get_scripts(self) -> List:
         """
-        Get  alist of custom-script ID's available for the user for the 'runscript' command.
+        Get a list of custom-script ID's available for the user for the 'runscript' command.
         :return:
         """
 
