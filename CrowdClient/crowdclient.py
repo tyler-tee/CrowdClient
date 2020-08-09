@@ -18,16 +18,16 @@ class CrowdClient:
         self.session = requests.session()
         self.session.verify = verify_cert
 
-    def authenticate(self) -> bool:
+    def authenticate(self) -> CrowdClient:
         """
         Authenticate to CrowdStrike API using id and secret supplied on instantiation
         :return:
         """
+
         payload = {'client_id': self.client_id,
                    'client_secret': self.client_secret}
 
-        response = self.session.post(self.base_url + '/oauth2/token',
-                                     data=payload)
+        response = self.session.post(self.base_url + '/oauth2/token', data=payload)
 
         if response.status_code == 201:
             headers = {'Authorization': f'Bearer {response.json()["access_token"]}',
@@ -36,7 +36,10 @@ class CrowdClient:
 
             self.session.headers = headers
 
-        return response.status_code == 201
+            return self
+
+        else:
+            print("Authentication failed - Check ID and Secret and try again.")
 
     def revoke(self) -> bool:
         """
@@ -410,7 +413,7 @@ class RTRClient:
         self.session = requests.session()
         self.session.verify = verify_cert
 
-    def authenticate(self) -> bool:
+    def authenticate(self) -> RTRClient:
         """
         Authenticate to CrowdStrike API using id and secret supplied on instantiation
         :return:
@@ -428,7 +431,7 @@ class RTRClient:
 
             self.session.headers = headers
 
-        return response.status_code == 201
+            return self
 
     def revoke(self) -> bool:
         """
@@ -442,48 +445,24 @@ class RTRClient:
 
         return response.status_code == 200
 
-    def get_scripts(self):
+    def host_search(self, criteria: str, criteria_type: str, limit: int = 5000) -> List:
         """
-
+        Search for hosts in your environment - Returns a list of agent ID's.
+        :param criteria_type: IE, local_ip, hostname, etc.
+        :param criteria: Largely dependent on 'criteria_type' (IE, local_ip:'192.168.0.3')
+        :param limit: Defaults to 5000 to capture as many records as possible.
         :return:
         """
-        response = self.session.get(self.base_url + '/queries/scripts/v1')
+
+        params = {'filter': f"{criteria_type}:'{criteria}'"}
+
+        if limit:
+            params['limit'] = limit
+
+        response = self.session.get(self.base_url + '/devices/queries/devices/v1', params=params)
 
         if response.status_code == 200:
             return response.json()['resources']
-
-    def script_details(self, script_ids: List):
-        params = {'ids': script_ids}
-
-        response = self.session.get(self.base_url + '/entities/scripts/v1', params=params)
-
-        if response.status_code == 200:
-            return response.json()['resources']
-        else:
-            return response
-
-    def upload_script(self, script_path: str, script_name: str, description: str,
-                      permission_type: str, platform: str):
-
-        payload = MultipartEncoder(
-            fields={'file': (script_name, open(script_path, 'rb')),
-                    'description': description,
-                    'permission_type': permission_type,
-                    'platform': platform}
-        )
-
-        self.session.headers['Content-Type'] = payload.content_type
-
-        response = self.session.post(self.base_url + '/entities/scripts/v1', data=payload)
-
-        return response.status_code == 200
-
-    def delete_script(self, script_id):
-        params = {'ids': script_id}
-
-        response = self.session.delete(self.base_url + '/entities/scripts/v1', params=params)
-
-        return response.status_code == 200
 
     def batch_init(self, host_ids: List, timeout: str = '30', timeout_duration: str = '30s') -> str:
         """
@@ -506,6 +485,24 @@ class RTRClient:
             return response.json()['batch_id']
         else:
             return f'Error:\n{response.text}'
+
+    def batch_refresh(self, batch_id: str, hosts_to_remove: List = None) -> bool:
+        """
+        Refresh an active batch session - Batch sessions expire after 10 minutes unless refresh.
+        :param batch_id: Batch ID belonging to the session you'd like to refresh.
+        :param hosts_to_remove: Optional - Specify which hosts you'd like to remove from the current session.
+        :return:
+        """
+        payload = {
+            'batch_id': batch_id
+        }
+
+        if hosts_to_remove:
+            payload['hosts_to_remove'] = hosts_to_remove
+
+        response = self.session.post(self.base_url + '/combined/batch-refresh-session/v1', json=payload)
+
+        return response.status_code == 201
 
     def batch_cmd(self, batch_id: str, command: str, command_string: str, timeout: int = 30,
                   timeout_duration: str = '10m', optional_hosts: List = None) -> bool:
@@ -542,7 +539,7 @@ class RTRClient:
     def batch_active_cmd(self, batch_id: str, command: str, command_string: str, timeout: int = 30,
                          timeout_duration: str = '10m', optional_hosts: List = None) -> bool:
         """
-        Executes an RTR read-only command across all hosts mapped to a batch ID.
+        Executes an RTR active-responder command across all hosts mapped to a batch ID.
         :param batch_id: Batch ID retrieved from the batch_init() method.
         :param command: Valid commands: cat, cd, clear, cp, encrypt, env, eventlog, filehash, get, getsid, help,
                         history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, reg query, reg set,
@@ -573,6 +570,41 @@ class RTRClient:
 
         return response.status_code == 201
 
+    def batch_admin_cmd(self, batch_id: str, command: str, command_string: str, timeout: int = 30,
+                        timeout_duration: str = '10m', optional_hosts: List = None) -> bool:
+        """
+        Executes an RTR admin command across all hosts mapped to a batch ID.
+        :param batch_id: Batch ID retrieved from the batch_init() method.
+        :param command: Valid commands: cat, cd, clear, cp, encrypt, env, eventlog, filehash, get, getsid, help,
+                        history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, put, reg query,
+                        reg set, reg delete, reg load, reg unload, restart, rm, run, runscript, shutdown, unmap,
+                        xmemdump, zip.
+        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :param timeout: How long to wait for the request in seconds - Default is 30, max is 10 minutes (600).
+        :param timeout_duration: How long to wait for the request in duration syntax. Valid units: ns, us, ms, s, m, h.
+        :param optional_hosts: List of a subset of hosts to run a command on.
+        :return:
+        """
+
+        payload = {
+            'base_command': command,
+            'batch_id': batch_id,
+            'command_string': command_string
+        }
+
+        if optional_hosts:
+            payload['optional_hosts'] = optional_hosts
+
+        params = {
+            'timeout': timeout,
+            'timeout_duration': timeout_duration
+        }
+
+        response = self.session.post(self.base_url + '/combined/batch-admin-command/v1',
+                                     json=payload, params=params)
+
+        return response.status_code == 201
+
     def session_init(self, host_id: str, origin: str) -> str:
         """
         Initialize an RTR session on a single host.
@@ -592,6 +624,20 @@ class RTRClient:
             return response.json()['resources'][0]['session_id']
         else:
             return response.text
+
+    def session_refresh(self, host_id: str) -> bool:
+        """
+        Refresh an active single-host session by specifying its host ID.
+        :param host_id: Specify which host by supplying its agent ID as a string.
+        :return:
+        """
+        payload = {
+            'device_id': host_id
+        }
+
+        response = self.sesion.post(self.base_url + '/entities/refresh-session/v1', json=payload)
+
+        return response.status_code == 201
 
     def delete_session(self, session_id: str) -> bool:
         """
@@ -656,7 +702,7 @@ class RTRClient:
 
     def session_active_cmd(self, session_id: str, command: str, command_string: str) -> bool:
         """
-        Executes an RTR read-only command across all hosts mapped to a batch ID.
+        Executes an RTR active-responder command across all hosts mapped to a batch ID.
         :param session_id: Batch ID retrieved from the batch_init() method.
         :param command: Valid commands: cat, cd, clear, cp, encrypt, env, eventlog, filehash, get, getsid, help,
                         history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, reg query, reg set,
@@ -667,10 +713,255 @@ class RTRClient:
 
         payload = {
             'base_command': command,
-            'batch_id': session_id,
+            'session_id': session_id,
             'command_string': command_string
         }
 
         response = self.session.post(self.base_url + '/entities/active-responder-command/v1', json=payload)
 
         return response.status_code == 201
+
+    def session_admin_cmd(self, session_id: str, command: str, command_string: str) -> bool:
+        """
+        Executes an RTR read-only command across all hosts mapped to a batch ID.
+        :param session_id: Batch ID retrieved from the batch_init() method.
+        :param command: Valid commands: cat, cd, clear, cp, encrypt, env, eventlog, filehash, get, getsid, help,
+                        history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, put, reg query,
+                        reg set, reg delete, reg load, reg unload, restart, rm, run, runscript, shutdown, unmap,
+                        xmemdump, zip.
+        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :return:
+        """
+
+        payload = {
+            'base_command': command,
+            'session_id': session_id,
+            'command_string': command_string
+        }
+
+        response = self.session.post(self.base_url + '/entities/admin-command/v1', json=payload)
+
+        return response.status_code == 201
+
+    def session_file_list(self, session_id: str) -> dict:
+        """
+        Get a list of files for the specified session.
+        :param session_id: Supply the session ID as a string.
+        :return:
+        """
+
+        params = {
+            'session_id': session_id
+        }
+
+        response = self.session.get(self.base_url + '/entities/file/v1', params=params)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {'Error Code': response.status_code, 'Error Details': response.text}
+
+    def session_file_contents(self, session_id: str, sha256: str, filename: str = None) -> dict:
+        """
+        Get RTR extracted file contents for the specified session and SHA256
+        :param session_id: Supply the desired session ID as a string.
+        :param sha256: The extracted sha256 for which to retrieve information.
+        :param filename: Optional - Filename to use for the archive name.
+        :return:
+        """
+
+        params = {
+            'session_id': session_id,
+            'sha256': sha256
+        }
+
+        if filename:
+            params['filename'] = filename
+
+        response = self.session.get(self.base_url + '/entities/extracted-file-contents/v1', params=params)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {'Error Code': response.status_code, 'Error Details': response.text}
+
+    def session_file_del(self, file_id: str, session_id: str) -> bool:
+        """
+        Delete an RTR session file.
+        :param file_id: File ID belonging to the file to be deleted.
+        :param session_id: Pertinent session ID (supplied as a string).
+        :return:
+        """
+
+        params = {
+            'ids': file_id,
+            'session_id': session_id
+        }
+
+        response = self.session.delete(self.base_url + '/entities/file/v1', params=params)
+
+        return response.status_code == 204
+
+    def get_scripts(self):
+        """
+        Get  alist of custom-script ID's available for the user for the 'runscript' command.
+        :return:
+        """
+
+        response = self.session.get(self.base_url + '/queries/scripts/v1')
+
+        if response.status_code == 200:
+            return response.json()['resources']
+
+    def script_details(self, script_ids: List):
+        """
+        Get the details for custom-scripts based on the ID's provided.
+        :param script_ids: Supply a list of strings corresponding to existing script ID's.
+        :return:
+        """
+
+        params = {'ids': script_ids}
+
+        response = self.session.get(self.base_url + '/entities/scripts/v1', params=params)
+
+        if response.status_code == 200:
+            return response.json()['resources']
+        else:
+            return response
+
+    def script_upload(self, script_path: str, script_name: str, description: str,
+                      permission_type: str, platform: List = None):
+        """
+        Upload a new custom-script to use for the RTR 'runscript' command'.
+        :param script_path: Custom-script file to upload (Should be a .ps1).
+        :param script_name: Filename to use for the uploaded script.
+        :param description: Description to use for the uploaded file.
+        :param permission_type: Can be one of three values:
+                                - private: usable by only the user who uploaded the script.
+                                - group: usable by all RTR Admins.
+                                - public: usable by all active-responders and RTR admins.
+        :param platform: Platforms for the file - Currently supports windows, mac.
+        :return:
+        """
+
+        if not platform:
+            platform = ['windows']
+
+        payload = MultipartEncoder(
+            fields={'file': (script_name, open(script_path, 'rb')),
+                    'description': description,
+                    'permission_type': permission_type,
+                    'platform': platform}
+        )
+
+        self.session.headers['Content-Type'] = payload.content_type
+
+        response = self.session.post(self.base_url + '/entities/scripts/v1', data=payload)
+
+        return response.status_code == 200
+
+    def script_replace(self, script_id: str, script_path: str, script_name: str, description: str,
+                       permission_type: str, platform: List = None):
+        """
+        Upload a new custom-script to use for the RTR 'runscript' command'.
+        :param script_id: Script ID to update.
+        :param script_path: Custom-script file to upload (Should be a .ps1).
+        :param script_name: Filename to use for the uploaded script.
+        :param description: Description to use for the uploaded file.
+        :param permission_type: Can be one of three values:
+                                - private: usable by only the user who uploaded the script.
+                                - group: usable by all RTR Admins.
+                                - public: usable by all active-responders and RTR admins.
+        :param platform: Platforms for the file - Currently supports windows, mac.
+        :return:
+        """
+
+        payload = MultipartEncoder(
+            fields={'file': (script_name, open(script_path, 'rb')),
+                    'id': script_id,
+                    'description': description,
+                    'permission_type': permission_type,
+                    'platform': platform}
+        )
+
+        self.session.headers['Content-Type'] = payload.content_type
+
+        response = self.session.patch(self.base_url + '/entities/scripts/v1', data=payload)
+
+        return response.status_code == 200
+
+    def script_delete(self, script_id):
+        """
+        Delete a custom-script based on the ID given.
+        :param script_id: Supply script ID as a string.
+        :return:
+        """
+        params = {'ids': script_id}
+
+        response = self.session.delete(self.base_url + '/entities/scripts/v1', params=params)
+
+        return response.status_code == 200
+
+    def file_list(self) -> dict:
+        """
+        Get a list of put-file ID's that are available to the user for the 'put' command.
+        :return:
+        """
+
+        response = self.session.get(self.base_url + '/queries/put-files/v1')
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {'Error Code': response.status_code, 'Error Details': response.text}
+
+    def file_details(self, file_ids: List) -> dict:
+        """
+        Get details on put-files based on the ID's provided.
+        :param file_ids: List of file ID's on which to get details (list of strings).
+        :return:
+        """
+
+        params = {'ids': file_ids}
+
+        response = self.session.get(self.base_url + '/entities/put-files/v1', params=params)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {'Error Code': response.status_code, 'Error Details': response.text}
+
+    def file_upload(self, filename: str, file_path: str, description: str, comment: str = '') -> bool:
+        """
+        Upload a new put-file to use for the RTR 'put' command.
+        :param filename: Filename by which the file will be identified.
+        :param file_path: Put-file to upload.
+        :param description: Description for the file.
+        :param comment: Optional - Supply a comment for the audit log.
+        :return:
+        """
+
+        payload = MultipartEncoder(
+            fields={'file': (filename, open(file_path, 'rb')),
+                    'description': description,
+                    'comment': comment}
+        )
+
+        self.session.headers['Content-Type'] = payload.content_type
+
+        response = self.session.post(self.base_url + '/entities/put-files/v1', data=payload)
+
+        return response.status_code == 200
+
+    def file_delete(self, file_id: str) -> bool:
+        """
+        File ID for the file to be deleted.
+        :param file_id: File ID as a string.
+        :return:
+        """
+
+        params = {'ids': file_id}
+
+        response = self.session.delete(self.base_url + '/entities/put-files/v1', params=params)
+
+        return response.status_code == 200
