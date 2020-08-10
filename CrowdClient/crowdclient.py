@@ -404,7 +404,7 @@ class RTRClient:
 
     def __init__(self, client_id: str,
                  client_secret: str,
-                 base_url: str = 'https://api.crowdstrike.com',
+                 base_url: str = 'https://api.crowdstrike.com/real-time-response',
                  verify_cert: bool = True):
 
         self.base_url = base_url + '/real-time-response'
