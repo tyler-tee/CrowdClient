@@ -30,8 +30,9 @@ host_count = falcon_client.indicator_host_count('8.8.8.8', 'ipv4')
 ```python
 from CrowdClient.crowdclient import RTRClient
 
-# Instantiate your client and authenticate in one line - Also works for the CrowdClient class
-rtr_client = RTRClient(<client_id>, <client_secret>).authenticate()
+# Instantiate your client and authenticate
+rtr_client = RTRClient(<client_id>, <client_secret>, verify_cert=False)
+rtr_client.authenticate()
 
 # Initiate a batch session for multiple hosts
 batch_id = rtr_client.batch_init(['hostid1', 'hostid2', 'hostid3'])
