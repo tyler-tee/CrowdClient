@@ -422,7 +422,7 @@ class RTRClient:
         payload = {'client_id': self.client_id,
                    'client_secret': self.client_secret}
 
-        response = self.session.post(self.base_url + '/oauth2/token', data=payload)
+        response = self.session.post(self.auth_url + '/oauth2/token', data=payload)
 
         if response.status_code == 201:
             headers = {'Authorization': f'Bearer {response.json()["access_token"]}',
