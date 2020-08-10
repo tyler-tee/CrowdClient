@@ -18,7 +18,7 @@ class CrowdClient:
         self.session = requests.session()
         self.session.verify = verify_cert
 
-    def authenticate(self) -> self:
+    def authenticate(self):
         """
         Authenticate to CrowdStrike API using id and secret supplied on instantiation
         :return:
@@ -413,7 +413,7 @@ class RTRClient:
         self.session = requests.session()
         self.session.verify = verify_cert
 
-    def authenticate(self) -> self:
+    def authenticate(self):
         """
         Authenticate to CrowdStrike API using id and secret supplied on instantiation.
         :return:
