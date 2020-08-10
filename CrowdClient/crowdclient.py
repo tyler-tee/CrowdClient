@@ -18,7 +18,7 @@ class CrowdClient:
         self.session = requests.session()
         self.session.verify = verify_cert
 
-    def authenticate(self) -> CrowdClient:
+    def authenticate(self) -> self:
         """
         Authenticate to CrowdStrike API using id and secret supplied on instantiation
         :return:
@@ -413,7 +413,7 @@ class RTRClient:
         self.session = requests.session()
         self.session.verify = verify_cert
 
-    def authenticate(self) -> RTRClient:
+    def authenticate(self) -> self:
         """
         Authenticate to CrowdStrike API using id and secret supplied on instantiation.
         :return:
@@ -510,7 +510,7 @@ class RTRClient:
         :param batch_id: Batch ID retrieved from the batch_init() method.
         :param command: Valid commands: cat, cd, clear, env, eventlog, filehash, getsid, help, history, ipconfig, ls,
                         mount, netstat, ps, reg query.
-        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :param command_string: Full command string for the command - IE, 'cd C:\\some_directory'.
         :param timeout: How long to wait for the request in seconds - Default is 30, max is 10 minutes (600).
         :param timeout_duration: How long to wait for the request in duration syntax. Valid units: ns, us, ms, s, m, h.
         :param optional_hosts: List of a subset of hosts to run a command on.
@@ -543,7 +543,7 @@ class RTRClient:
         :param command: Valid commands: cat, cd, clear, cp, encrypt, env, eventlog, filehash, get, getsid, help,
                         history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, reg query, reg set,
                         reg delete, reg load, reg unload, restart, rm, runscript, shutdown, unmap, xmemdump, zip.
-        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :param command_string: Full command string for the command - IE, 'cd C:\\some_directory'.
         :param timeout: How long to wait for the request in seconds - Default is 30, max is 10 minutes (600).
         :param timeout_duration: How long to wait for the request in duration syntax. Valid units: ns, us, ms, s, m, h.
         :param optional_hosts: List of a subset of hosts to run a command on.
@@ -578,7 +578,7 @@ class RTRClient:
                         history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, put, reg query,
                         reg set, reg delete, reg load, reg unload, restart, rm, run, runscript, shutdown, unmap,
                         xmemdump, zip.
-        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :param command_string: Full command string for the command - IE, 'cd C:\\some_directory'.
         :param timeout: How long to wait for the request in seconds - Default is 30, max is 10 minutes (600).
         :param timeout_duration: How long to wait for the request in duration syntax. Valid units: ns, us, ms, s, m, h.
         :param optional_hosts: List of a subset of hosts to run a command on.
@@ -684,7 +684,7 @@ class RTRClient:
         :param session_id: Session ID retrieved from the batch_init() method.
         :param command: Valid commands: cat, cd, clear, env, eventlog, filehash, getsid, help, history, ipconfig, ls,
                         mount, netstat, ps, reg query.
-        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :param command_string: Full command string for the command - IE, 'cd C:\\some_directory'.
         :return:
         """
 
@@ -705,7 +705,7 @@ class RTRClient:
         :param command: Valid commands: cat, cd, clear, cp, encrypt, env, eventlog, filehash, get, getsid, help,
                         history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, reg query, reg set,
                         reg delete, reg load, reg unload, restart, rm, runscript, shutdown, unmap, xmemdump, zip.
-        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :param command_string: Full command string for the command - IE, 'cd C:\\some_directory'.
         :return:
         """
 
@@ -727,7 +727,7 @@ class RTRClient:
                         history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, put, reg query,
                         reg set, reg delete, reg load, reg unload, restart, rm, run, runscript, shutdown, unmap,
                         xmemdump, zip.
-        :param command_string: Full command string for the command - IE, 'cd C:\some_directory'.
+        :param command_string: Full command string for the command - IE, 'cd C:\\some_directory'.
         :return:
         """
 
