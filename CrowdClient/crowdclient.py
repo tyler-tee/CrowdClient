@@ -701,7 +701,7 @@ class RTRClient:
     def session_active_cmd(self, session_id: str, command: str, command_string: str) -> bool:
         """
         Executes an RTR active-responder command across all hosts mapped to a batch ID.
-        :param session_id: Batch ID retrieved from the batch_init() method.
+        :param session_id: Session ID retrieved from the batch_init() method.
         :param command: Valid commands: cat, cd, clear, cp, encrypt, env, eventlog, filehash, get, getsid, help,
                         history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, reg query, reg set,
                         reg delete, reg load, reg unload, restart, rm, runscript, shutdown, unmap, xmemdump, zip.
@@ -722,7 +722,7 @@ class RTRClient:
     def session_admin_cmd(self, session_id: str, command: str, command_string: str) -> bool:
         """
         Executes an RTR read-only command across all hosts mapped to a batch ID.
-        :param session_id: Batch ID retrieved from the batch_init() method.
+        :param session_id: Session ID retrieved from the batch_init() method.
         :param command: Valid commands: cat, cd, clear, cp, encrypt, env, eventlog, filehash, get, getsid, help,
                         history, ipconfig, kill, ls, map, memdump, mkdir, mount, mv, netstat, ps, put, reg query,
                         reg set, reg delete, reg load, reg unload, restart, rm, run, runscript, shutdown, unmap,
@@ -735,6 +735,34 @@ class RTRClient:
             'base_command': command,
             'session_id': session_id,
             'command_string': command_string
+        }
+
+        response = self.session.post(self.base_url + '/entities/admin-command/v1', json=payload)
+
+        return response.status_code == 201
+
+    def session_runscript(self, session_id: str, script_name: str = None, raw_cmd: str = None) -> bool:
+        """
+        Execute either a pre-staged PowerShell script or supply a raw PowerShell command. Added this specifically
+        because the format for the runscript command can be tricky and is a pain to debug.
+        :param session_id: Session ID retrieved from the batch_init() method.
+        :param script_name: Name of a pre-staged script.
+        :param raw_cmd: Valid PowerShell command to execute across hosts in batch session.
+        :return:
+        """
+
+        if script_name:
+            cmd_string = f'runscript -CloudFile="{script_name}"'
+        elif raw_cmd:
+            cmd_string = f'runscript -Raw=```{raw_cmd}```'
+        else:
+            print("Error! Must supply either a valid script name or a raw PowerShell command to execute.")
+            return False
+
+        payload = {
+            'base_command': 'runscript',
+            'session_id': session_id,
+            'command_string': cmd_string
         }
 
         response = self.session.post(self.base_url + '/entities/admin-command/v1', json=payload)
@@ -899,6 +927,41 @@ class RTRClient:
         response = self.session.delete(self.base_url + '/entities/scripts/v1', params=params)
 
         return response.status_code == 200
+
+    def batch_runscript(self, batch_id: str, script_name: str = None, raw_cmd: str = None,
+                        optional_hosts: List = None) -> bool:
+        """
+        Execute either a pre-staged PowerShell script or supply a raw PowerShell command. Added this specifically
+        because the format for the runscript command can be tricky and is a pain to debug.
+        :param batch_id: Batch ID retrieved from the batch_init() method.
+        :param script_name: Name of a pre-staged script.
+        :param raw_cmd: Valid PowerShell command to execute across hosts in batch session.
+        :param optional_hosts: Any hosts you'd like excluded from command execution.
+        :return:
+        """
+        true = True
+
+        if script_name:
+            cmd_string = f'runscript -CloudFile="{script_name}"'
+        elif raw_cmd:
+            cmd_string = f'runscript -Raw=```{raw_cmd}```'
+        else:
+            print("Error! Must supply either a valid script name or a raw PowerShell command to execute.")
+            return False
+
+        payload = {
+            'base_command': 'runscript',
+            'batch_id': batch_id,
+            'command_string': cmd_string,
+            'persist_all': true
+        }
+
+        if optional_hosts:
+            payload['optional_hosts'] = optional_hosts
+
+        response = self.session.post(self.base_url + '/combined/batch-admin-command/v1', json=payload)
+
+        return response.status_code == 201
 
     def file_list(self) -> dict:
         """
