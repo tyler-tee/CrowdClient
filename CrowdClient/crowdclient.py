@@ -404,9 +404,10 @@ class RTRClient:
 
     def __init__(self, client_id: str,
                  client_secret: str,
-                 base_url: str = 'https://api.crowdstrike.com/real-time-response',
+                 base_url: str = 'https://api.crowdstrike.com',
                  verify_cert: bool = True):
 
+        self.auth_url = base_url
         self.base_url = base_url + '/real-time-response'
         self.client_id = client_id
         self.client_secret = client_secret
@@ -439,7 +440,7 @@ class RTRClient:
         """
         payload = {'token': self.session.headers['Authorization']}
 
-        response = self.session.post(self.base_url + '/oauth2/revoke', data=payload,
+        response = self.session.post(self.auth_url + '/oauth2/revoke', data=payload,
                                      auth=HTTPBasicAuth(self.client_id, self.client_secret))
 
         return response.status_code == 200
@@ -458,7 +459,7 @@ class RTRClient:
         if limit:
             params['limit'] = limit
 
-        response = self.session.get(self.base_url + '/devices/queries/devices/v1', params=params)
+        response = self.session.get(self.auth_url + '/devices/queries/devices/v1', params=params)
 
         if response.status_code == 200:
             return response.json()['resources']
