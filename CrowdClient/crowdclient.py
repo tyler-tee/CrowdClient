@@ -355,16 +355,23 @@ class CrowdClient:
         if response.status_code == 200:
             return response.json()['resources']
 
-    def host_search(self, criteria: str, criteria_type: str, limit: int = 5000) -> List:
+    def host_search(self, criteria: str = None, criteria_type: str = None,
+                    raw_filter: str = None, limit: int = 5000) -> List:
         """
         Search for hosts in your environment - Returns a list of agent ID's.
         :param criteria_type: IE, local_ip, hostname, etc.
         :param criteria: Largely dependent on 'criteria_type' (IE, local_ip:'192.168.0.3')
+        :param raw_filter: Optional - Supply your own pre-built filter. If blank, defaults to criteria/criteria_type.
         :param limit: Defaults to 5000 to capture as many records as possible.
         :return:
         """
 
-        params = {'filter': f"{criteria_type}:'{criteria}'"}
+        if criteria and criteria_type:
+            params = {'filter': f"{criteria_type}:'{criteria}'"}
+        elif raw_filter:
+            params = {'filter': raw_filter}
+        else:
+            params = None
 
         if limit:
             params['limit'] = limit
@@ -451,16 +458,23 @@ class RTRClient:
 
         return response.status_code == 200
 
-    def host_search(self, criteria: str, criteria_type: str, limit: int = 5000) -> List:
+    def host_search(self, criteria: str = None, criteria_type: str = None,
+                    raw_filter: str = None, limit: int = 5000) -> List:
         """
         Search for hosts in your environment - Returns a list of agent ID's.
         :param criteria_type: IE, local_ip, hostname, etc.
         :param criteria: Largely dependent on 'criteria_type' (IE, local_ip:'192.168.0.3')
+        :param raw_filter: Optional - Supply your own pre-built filter. If blank, defaults to criteria/criteria_type.
         :param limit: Defaults to 5000 to capture as many records as possible.
         :return:
         """
 
-        params = {'filter': f"{criteria_type}:'{criteria}'"}
+        if criteria and criteria_type:
+            params = {'filter': f"{criteria_type}:'{criteria}'"}
+        elif raw_filter:
+            params = {'filter': raw_filter}
+        else:
+            params = None
 
         if limit:
             params['limit'] = limit
@@ -863,7 +877,7 @@ class RTRClient:
             return {'Error Code': response.status_code, 'Error Details': response.text, 'Full Response': response}
 
     def script_upload(self, script_path: str, script_name: str, description: str,
-                      permission_type: str, platform: List = None) -> bool:
+                      permission_type: str, platform: str = 'Windows') -> bool:
         """
         Upload a new custom-script to use for the RTR 'runscript' command'.
         :param script_path: Custom-script file to upload (Should be a .ps1).
@@ -876,9 +890,6 @@ class RTRClient:
         :param platform: Platforms for the file - Currently supports windows, mac.
         :return:
         """
-
-        if not platform:
-            platform = ['windows']
 
         payload = MultipartEncoder(
             fields={'file': (script_name, open(script_path, 'rb')),
