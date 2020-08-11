@@ -46,7 +46,10 @@ class CrowdClient:
         Revoke an issued Bearer token.
         :return:
         """
-        payload = {'token': self.session.headers['Authorization']}
+
+        token = self.session.headers['Authorization'].split()[-1]  # Split out the token from our headers
+
+        payload = {'token': token}
 
         response = self.session.post(self.base_url + '/oauth2/revoke', data=payload,
                                      auth=HTTPBasicAuth(self.client_id, self.client_secret))
@@ -438,7 +441,10 @@ class RTRClient:
         Revoke an issued Bearer token.
         :return:
         """
-        payload = {'token': self.session.headers['Authorization']}
+
+        token = self.session.headers['Authorization'].split()[-1]  # Split out the token from our headers
+
+        payload = {'token': token}
 
         response = self.session.post(self.auth_url + '/oauth2/revoke', data=payload,
                                      auth=HTTPBasicAuth(self.client_id, self.client_secret))
