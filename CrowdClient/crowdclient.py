@@ -474,7 +474,7 @@ class RTRClient:
         elif raw_filter:
             params = {'filter': raw_filter}
         else:
-            params = None
+            params = {}
 
         if limit:
             params['limit'] = limit
