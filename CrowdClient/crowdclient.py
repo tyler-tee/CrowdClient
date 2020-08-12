@@ -371,12 +371,12 @@ class CrowdClient:
         elif raw_filter:
             params = {'filter': raw_filter}
         else:
-            params = None
+            params = {}
 
         if limit:
             params['limit'] = limit
 
-        response = self.session.get(self.base_url + '/devices/queries/devices/v1', params=params)
+        response = self.session.get(self.auth_url + '/devices/queries/devices/v1', params=params)
 
         if response.status_code == 200:
             return response.json()['resources']
