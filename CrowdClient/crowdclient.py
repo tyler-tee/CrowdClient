@@ -135,24 +135,24 @@ class CrowdClient:
 
         return response.status_code == 200
 
-    def get_incidents(self, sort: str = 'modified_timestamp.desc', status: str = '20', fine_score: str = '10') -> List:
+    def get_incidents(self, sort: str = 'modified_timestamp.desc', status: str = 'new', fine_score: str = '10') -> List:
         """
         Retrieve a list of incidents in your environment based on supplied criteria.
         :param sort: Defaults to descending order based on last modified.
-        :param status: Can be 'New', 'In Progress', 'Closed', or 'Reopened'.
+        :param status: Can be 'new', 'in_progress', 'closed', or 'reopened'.
         :param fine_score: Severity (>=) can be anywhere from 0-100 (100 would have a severity of 10.0).
         :return:
         """
 
         status_dict = {
-            'New': '20',
-            'In Progress': '30',
-            'Closed': '40',
-            'Reopened': '25'
+            'new': '20',
+            'in_progress': '30',
+            'closed': '40',
+            'reopened': '25'
         }
 
         params = {'sort': sort,
-                  'filter': f'status:{status_dict[status]}+fine_score:>={fine_score}'}
+                  'filter': f'status:{status_dict[status.lower()]}+fine_score:>={fine_score}'}
 
         response = self.session.get(self.base_url + '/incidents/queries/incidents/v1', params=params)
 
@@ -296,7 +296,7 @@ class CrowdClient:
         if response.status_code == 200:
             return response.json()['resources']
 
-    def indicator_host_search(self, indicator: str, indicator_type: str) -> List:
+    def indicator_host_search(self, indicator: str, indicator_type: str) -> dict:
         """
         Search for hosts that have displayed some activity related to a specified indicator.
         :param indicator: String representation of the indicator.
