@@ -49,4 +49,4 @@ script_details = rtr_client.script_details(script_ids)
 
 
 ## License
-[Gnu GPLv3](https://choosealicense.com/licenses/gpl-3.0/)
+[MIT](https://choosealicense.com/licenses/mit/)
