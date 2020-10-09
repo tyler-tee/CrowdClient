@@ -10,7 +10,7 @@ setup(
     version='0.2.9',
     packages=['CrowdClient'],
     url='https://github.com/tyler-tee/CrowdClient',
-    license='GPLv3',
+    license='MIT',
     author='Tyler Talaga',
     author_email='ttalaga@wgu.edu',
     description='CrowdClient is a Python library for interacting with CrowdStrike Falcon\'s REST API.',
