@@ -391,8 +391,7 @@ class CrowdClient:
 
         response = self.session.get(self.base_url + '/devices/entities/devices/v1', params=params)
 
-        if response.status_code == 200:
-            return response.json()['resources']
+        return response.json().get('resources', [])
 
     def host_action(self, host_ids: List, action: str) -> bool:
         """
