@@ -358,7 +358,7 @@ class CrowdClient:
     def host_search(self, criteria: str = None, criteria_type: str = None,
                     raw_filter: str = None, limit: int = 5000) -> List:
         """
-        Search for hosts in your environment - Returns a list of agent ID's.
+        Search for hosts in your environment - Returns a list of agent ID's. If AID's > 5000, it will return a list of lists (<=5000 AID's in each list)
         :param criteria_type: IE, local_ip, hostname, etc.
         :param criteria: Largely dependent on 'criteria_type' (IE, local_ip:'192.168.0.3')
         :param raw_filter: Optional - Supply your own pre-built filter. If blank, defaults to criteria/criteria_type.
@@ -376,10 +376,30 @@ class CrowdClient:
         if limit:
             params['limit'] = limit
 
-        response = self.session.get(self.base_url + '/devices/queries/devices/v1', params=params)
+        response = self.session.get(self.base_url + '/devices/queries/devices-scroll/v1', params=params)
 
         if response.status_code == 200:
+            if response.json()['meta']['pagination']['offset']:
+                host_ids = [response.json()['resources']]
+
+                while True:
+                    params['offset'] = response.json()['meta']['pagination']['offset']
+                    secondary_response = self.session.get(self.base_url + '/devices/queries/devices-scroll/v1', params=params)
+                    
+                    if secondary_response.json()['resources']:
+                        host_ids.append(secondary_response.json()['resources'])
+                    else:
+                        break
+
+                    if not secondary_response.json()['meta']['pagination']['offset']:
+                        break
+
+                return host_ids
+
             return response.json()['resources']
+
+        else:
+            print(response.status_code, '\n', response.headers, '\n', response.json())
 
     def host_details(self, host_ids: List) -> List:
         """
@@ -391,7 +411,10 @@ class CrowdClient:
 
         response = self.session.get(self.base_url + '/devices/entities/devices/v1', params=params)
 
-        return response.json().get('resources', [])
+        if response.status_code == 200:
+            return response.json().get('resources', [])
+        else:
+            print(response.status_code, '\n', response.headers, '\n', response.json())
 
     def host_action(self, host_ids: List, action: str) -> bool:
         """
