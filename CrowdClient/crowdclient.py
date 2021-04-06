@@ -430,6 +430,46 @@ class CrowdClient:
                                      json=payload, params=params)
 
         return response.status_code == 202
+    
+
+    def host_group_members(self, group_id: str) -> dict:
+        """
+        Retrieve members for a given group ID.
+        :param group_id: Group ID for which membership information is desired.
+        """
+
+        params = {'id': group_id}
+
+        response = self.session.get(self.base_url + '/devices/combined/host-group-members/v1',
+                                    params=params)
+
+        if response.status_code == 200:
+            return response.json().get('resources', [])
+        else:
+            print(response.status_code, '\n', response.headers, '\n', response.json())
+    
+
+    def host_group_manage(self, action: str, host_ids: List, group_id: str) -> bool:
+        """
+        Assign or remove one or more hosts from a desired group using their AID's.
+        :param action: Can be 'add-hosts' or 'remove-hosts'.
+        :param host_ids: A list of one or more host ID's to be added/removed.
+        :param group_id: The ID of the pertinent group.
+        """
+
+        payload = {
+            'action_parameters': [
+                {
+                    'name': 'filter',
+                    'value': f'(device_id:{host_ids}'
+                }
+                                 ],
+            'ids': host_ids
+        }
+
+        response = self.session.post(self.base_url + '/devices/entities/host-group-actions/v1', json=payload)
+
+        return response.status_code == 200
 
 
 class RTRClient:
