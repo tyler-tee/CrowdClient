@@ -463,7 +463,7 @@ class CrowdClient:
             'action_parameters': [
                 {
                     'name': 'filter',
-                    'value': f'(device_id:{host_ids}'
+                    'value': f'device_id:{host_ids}'
                 }
                                  ],
             'ids': group_id
