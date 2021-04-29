@@ -7,7 +7,7 @@ with open(path.join(currrent_direct, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='CrowdClient',
-    version='0.3.1',
+    version='0.3.2',
     packages=['CrowdClient'],
     url='https://github.com/tyler-tee/CrowdClient',
     license='MIT',

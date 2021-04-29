@@ -457,6 +457,8 @@ class CrowdClient:
         :param group_id: The ID of the pertinent group.
         """
 
+        params = {'action_name': action}
+
         payload = {
             'action_parameters': [
                 {
@@ -464,10 +466,11 @@ class CrowdClient:
                     'value': f'(device_id:{host_ids}'
                 }
                                  ],
-            'ids': host_ids
+            'ids': group_id
         }
 
-        response = self.session.post(self.base_url + '/devices/entities/host-group-actions/v1', json=payload)
+        response = self.session.post(self.base_url + '/devices/entities/host-group-actions/v1',
+                                     json=payload, params=params)
 
         return response.status_code == 200
 
