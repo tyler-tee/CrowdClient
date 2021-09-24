@@ -268,7 +268,7 @@ class CrowdClient:
         payload = payload_assemble(indicator_list, description, indicator_type)
 
         for item in chunker(payload):
-            response = self.session.post(self.base_url + '/indicators/entities/iocs/v1', json=item)
+            response = self.session.post(self.base_url + '/iocs/entities/indicators/v1', json=item)
 
             if response.status_code == 200:
                 if not response.json()['errors']:
@@ -291,7 +291,7 @@ class CrowdClient:
         if policy:
             params['policy'] = policy
 
-        response = self.session.get(self.base_url + '/indicators/entities/iocs/v1', params=params)
+        response = self.session.get(self.base_url + '/iocs/entities/indicators/v1', params=params)
 
         if response.status_code == 200:
             return response.json()['resources']
@@ -337,7 +337,7 @@ class CrowdClient:
         params = {'type': indicator_type,
                   'value': indicator}
 
-        response = self.session.delete(self.base_url + '/indicators/entities/iocs/v1', params=params)
+        response = self.session.delete(self.base_url + '/iocs/entities/indicators/v1', params=params)
 
         return response.status_code == 200
 
@@ -350,7 +350,7 @@ class CrowdClient:
 
         params = {'types': indicator_type}
 
-        response = self.session.get(self.base_url + '/indicators/queries/iocs/v1', params=params)
+        response = self.session.get(self.base_url + '/iocs/queries/indicators/v1', params=params)
 
         if response.status_code == 200:
             return response.json()['resources']
@@ -449,7 +449,7 @@ class CrowdClient:
             print(response.status_code, '\n', response.headers, '\n', response.json())
     
 
-    def host_group_manage(self, action: str, host_ids: List, group_id: str) -> bool:
+    def host_group_manage(self, action: str, host_ids: List, group_id: List) -> bool:
         """
         Assign or remove one or more hosts from a desired group using their AID's.
         :param action: Can be 'add-hosts' or 'remove-hosts'.

@@ -7,3 +7,4 @@
 /CrowdClient.egg-info/
 /dist/
 /Include/
+__pycache__/
