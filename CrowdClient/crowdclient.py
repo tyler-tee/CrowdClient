@@ -432,13 +432,24 @@ class CrowdClient:
         return response.status_code == 202
     
 
-    def host_group_members(self, group_id: str) -> dict:
+    def host_group_members(self, group_id: str, limit: int = 5000, raw_filter: str = None,
+                            criteria: str = None, criteria_type: str = None) -> dict:
         """
         Retrieve members for a given group ID.
         :param group_id: Group ID for which membership information is desired.
+        :param limit: Defaults to 5000 to capture as many records as possible.
+        :param criteria_type: IE, local_ip, hostname, etc.
+        :param criteria: Largely dependent on 'criteria_type' (IE, local_ip:'192.168.0.3')
+        :param raw_filter: Optional - Supply your own pre-built filter. If blank, defaults to criteria/criteria_type.
         """
 
-        params = {'id': group_id}
+        params = {'id': group_id,
+                  'limit': limit}
+        
+        if criteria and criteria_type:
+            params ['filter'] = f"{criteria_type}:'{criteria}'"
+        elif raw_filter:
+            params['filter'] = raw_filter
 
         response = self.session.get(self.base_url + '/devices/combined/host-group-members/v1',
                                     params=params)
